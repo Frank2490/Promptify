@@ -66,7 +66,7 @@ export default function Home() {
       <div className="mx-auto w-full max-w-[680px] space-y-8">
         {/* Header */}
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Prompt Enhancer</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Promptify</h1>
           <p className="text-sm text-zinc-400">Transform your idea into powerful AI prompts.</p>
         </div>
 

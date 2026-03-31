@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Prompt Enhancer",
-  description: "Enhance your prompts with AI",
+  title: "Promptify",
+  description: "Transform your ideas into powerful AI prompts",
 };
 
 export default function RootLayout({
