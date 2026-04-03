@@ -33,7 +33,7 @@ export default function PromptCard({ label, text, accent = false }: PromptCardPr
             bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white
             active:scale-95"
         >
-          {copied ? "Copied!" : "Copy"}
+          {copied ? "SKOPIOWANO ✓" : "KOPIUJ"}
         </button>
       </div>
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">{text}</p>

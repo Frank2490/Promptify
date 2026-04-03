@@ -3,50 +3,101 @@
 import { useState } from "react";
 import PromptCard from "@/components/PromptCard";
 
-type PromptType = "image" | "text" | "code";
-
 interface GenerateResponse {
   masterPrompt: string;
   shortVersion: string;
-  variations: string[];
 }
 
-const TYPE_BUTTONS: { id: PromptType; label: string }[] = [
-  { id: "image", label: "Image" },
-  { id: "text", label: "Text" },
-  { id: "code", label: "Code" },
+interface HistoryEntry {
+  id: number;
+  userInput: string;
+  generatedPrompt: string;
+  model: string;
+  modelId: ModelId;
+  style: string;
+  date: string;
+}
+
+const STYLE_OPTIONS   = ["Realistic", "Cinematic", "Anime", "Oil Painting", "Watercolor", "Pixel Art", "3D Render", "Sketch"];
+const MOOD_OPTIONS    = ["Dark", "Vibrant", "Futuristic", "Calm", "Dramatic", "Ethereal", "Minimalist"];
+const LIGHTING_OPTIONS = ["Golden Hour", "Studio Light", "Neon", "Dramatic", "Soft", "Moonlight"];
+const COMPOSITION_OPTIONS = ["Portrait (1:1)", "Landscape (16:9)", "Square (1:1)", "Panoramic (21:9)", "Vertical (9:16)"];
+
+type ModelId = "dalle3" | "midjourney" | "sdxl" | "flux" | "nanobanana";
+
+const MODELS: { id: ModelId; name: string; icon: string }[] = [
+  { id: "dalle3",     name: "DALL-E 3",           icon: "✦" },
+  { id: "midjourney", name: "Midjourney v6",       icon: "◈" },
+  { id: "sdxl",       name: "Stable Diffusion XL", icon: "⬡" },
+  { id: "flux",       name: "Flux",                icon: "⚡" },
+  { id: "nanobanana", name: "NanoBanana",          icon: "🍌" },
 ];
 
-const STYLE_OPTIONS = ["", "Realistic", "Cinematic", "Anime", "Oil painting", "Watercolor"];
-const MOOD_OPTIONS = ["", "Dark", "Vibrant", "Futuristic", "Calm", "Dramatic"];
-const QUALITY_OPTIONS = ["Standard", "High", "Ultra"];
-
 export default function Home() {
-  const [selectedType, setSelectedType] = useState<PromptType>("image");
+  const [selectedModel, setSelectedModel] = useState<ModelId>("dalle3");
   const [userInput, setUserInput] = useState("");
   const [style, setStyle] = useState("");
   const [mood, setMood] = useState("");
-  const [quality, setQuality] = useState("Standard");
+  const [lighting, setLighting] = useState("");
+  const [composition, setComposition] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [submittedInput, setSubmittedInput] = useState("");
+  const [resultModel, setResultModel] = useState<ModelId>("dalle3");
+  const [copiedMain, setCopiedMain] = useState(false);
+
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("promptify_history") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const saveHistory = (updated: HistoryEntry[]) => {
+    setHistory(updated);
+    localStorage.setItem("promptify_history", JSON.stringify(updated));
+  };
+
+  const deleteFromHistory = (id: number) => {
+    saveHistory(history.filter((e) => e.id !== id));
+  };
+
+  const loadFromHistory = (entry: HistoryEntry) => {
+    setSubmittedInput(entry.userInput);
+    setResultModel(entry.modelId);
+    setResult({ masterPrompt: entry.generatedPrompt, shortVersion: "" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCopyMain = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedMain(true);
+    setTimeout(() => setCopiedMain(false), 2000);
+  };
 
   const handleGenerate = async () => {
     setError(false);
     setResult(null);
     setLoading(true);
+    setSubmittedInput(userInput);
+    setResultModel(selectedModel);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: selectedType,
+          type: "image",
           input: userInput,
+          selectedModel,
           style,
           mood,
-          quality,
+          lighting,
+          composition,
         }),
       });
 
@@ -54,6 +105,17 @@ export default function Home() {
 
       const data: GenerateResponse = await res.json();
       setResult(data);
+
+      const entry: HistoryEntry = {
+        id: Date.now(),
+        userInput,
+        generatedPrompt: data.masterPrompt,
+        model: MODELS.find((m) => m.id === selectedModel)?.name ?? selectedModel,
+        modelId: selectedModel,
+        style,
+        date: new Date().toISOString().split("T")[0],
+      };
+      saveHistory([entry, ...history].slice(0, 10));
     } catch {
       setError(true);
     } finally {
@@ -67,34 +129,28 @@ export default function Home() {
         {/* Header */}
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Promptify</h1>
-          <p className="text-sm text-zinc-400">Transform your idea into powerful AI prompts.</p>
+          <p className="text-sm text-zinc-400">Zamień swój pomysł w potężne prompty dla AI.</p>
         </div>
 
-        {/* Step 1 — Type selector */}
+        {/* Step 1 — Model */}
         <section className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-            Type
+            Model AI
           </label>
-          <div className="flex gap-2">
-            {TYPE_BUTTONS.map(({ id, label }) => (
+          <div className="flex flex-wrap gap-2">
+            {MODELS.map(({ id, name, icon }) => (
               <button
                 key={id}
-                onClick={() => {
-                  setSelectedType(id);
-                  if (id !== "image") {
-                    setStyle("");
-                    setMood("");
-                    setQuality("Standard");
-                  }
-                }}
-                className={`rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-150
+                onClick={() => setSelectedModel(id)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150
                   ${
-                    selectedType === id
+                    selectedModel === id
                       ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
                       : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
                   }`}
               >
-                {label}
+                <span>{icon}</span>
+                <span>{name}</span>
               </button>
             ))}
           </div>
@@ -106,13 +162,13 @@ export default function Home() {
             htmlFor="userInput"
             className="text-xs font-semibold uppercase tracking-widest text-zinc-400"
           >
-            Your idea
+            Twój pomysł
           </label>
           <textarea
             id="userInput"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Describe what you want to create..."
+            placeholder="Opisz co chcesz stworzyć..."
             rows={3}
             maxLength={500}
             className="w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3
@@ -134,71 +190,94 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Step 3 — Image refinements */}
-        {selectedType === "image" && (
-          <section className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-              Refinements
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {/* Style */}
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-500">Style</span>
-                <select
-                  value={style}
-                  onChange={(e) => setStyle(e.target.value)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2
-                    text-sm text-zinc-100 outline-none transition-colors
-                    focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                >
-                  {STYLE_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt === "" ? "(none)" : opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        {/* Step 3 — Refinements */}
+        <section className="space-y-5">
+          <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
+            Doprecyzowanie
+          </label>
 
-              {/* Mood */}
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-500">Mood</span>
-                <select
-                  value={mood}
-                  onChange={(e) => setMood(e.target.value)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2
-                    text-sm text-zinc-100 outline-none transition-colors
-                    focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          {/* Style */}
+          <div className="space-y-2">
+            <span className="text-xs text-zinc-500">Styl</span>
+            <div className="flex flex-wrap gap-2">
+              {STYLE_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setStyle(style === opt ? "" : opt)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150
+                    ${style === opt
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                    }`}
                 >
-                  {MOOD_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt === "" ? "(none)" : opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quality */}
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-500">Quality</span>
-                <select
-                  value={quality}
-                  onChange={(e) => setQuality(e.target.value)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2
-                    text-sm text-zinc-100 outline-none transition-colors
-                    focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                >
-                  {QUALITY_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  {opt}
+                </button>
+              ))}
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* Step 4 — Generate */}
+          {/* Mood */}
+          <div className="space-y-2">
+            <span className="text-xs text-zinc-500">Nastrój</span>
+            <div className="flex flex-wrap gap-2">
+              {MOOD_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setMood(mood === opt ? "" : opt)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150
+                    ${mood === opt
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                    }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lighting */}
+          <div className="space-y-2">
+            <span className="text-xs text-zinc-500">Oświetlenie</span>
+            <div className="flex flex-wrap gap-2">
+              {LIGHTING_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setLighting(lighting === opt ? "" : opt)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150
+                    ${lighting === opt
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                    }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Composition */}
+          <div className="space-y-2">
+            <span className="text-xs text-zinc-500">Kompozycja</span>
+            <div className="flex flex-wrap gap-2">
+              {COMPOSITION_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setComposition(composition === opt ? "" : opt)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150
+                    ${composition === opt
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                    }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Step 3 — Generate */}
         <button
           onClick={handleGenerate}
           disabled={loading || userInput.trim().length === 0}
@@ -229,30 +308,105 @@ export default function Home() {
               />
             </svg>
           )}
-          {loading ? "Generating…" : "Generate prompts"}
+          {loading ? "Generowanie…" : "Generuj prompty"}
         </button>
 
         {/* Error banner */}
         {error && (
           <div className="rounded-lg border border-red-800 bg-red-950 px-4 py-3 text-sm text-red-300">
-            Something went wrong. Check your API key and try again.
+            Coś poszło nie tak. Sprawdź klucz API i spróbuj ponownie.
           </div>
         )}
 
         {/* Result section */}
         {result && (
+          <section className="space-y-4">
+            {/* Two-column comparison */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Left — original idea */}
+              <div className="flex flex-col gap-3 rounded-lg bg-zinc-800/50 p-5">
+                <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                  Twój pomysł
+                </span>
+
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+                  {submittedInput}
+                </p>
+              </div>
+
+              {/* Right — generated prompt */}
+              <div className="flex flex-col gap-3 rounded-lg border border-purple-500/30 bg-zinc-900 p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-purple-400">
+                    Prompt dla {MODELS.find((m) => m.id === resultModel)?.name}
+                  </span>
+                  <button
+                    onClick={() => handleCopyMain(result.masterPrompt)}
+                    className="shrink-0 rounded-md bg-zinc-800 px-3 py-1 text-xs font-semibold
+                      text-zinc-300 transition-all duration-150 hover:bg-zinc-700
+                      hover:text-white active:scale-95"
+                  >
+                    {copiedMain ? "SKOPIOWANO ✓" : "KOPIUJ"}
+                  </button>
+                </div>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
+                  {result.masterPrompt}
+                </p>
+              </div>
+            </div>
+
+            {/* Secondary results */}
+            <PromptCard label="Skrócona wersja" text={result.shortVersion} />
+          </section>
+        )}
+        {/* History */}
+        {history.length > 0 && (
           <section className="space-y-3">
-            <PromptCard label="Master prompt" text={result.masterPrompt} accent />
-            <PromptCard label="Short version" text={result.shortVersion} />
-            {result.variations[0] && (
-              <PromptCard label="Variation 1" text={result.variations[0]} />
-            )}
-            {result.variations[1] && (
-              <PromptCard label="Variation 2" text={result.variations[1]} />
-            )}
-            {result.variations[2] && (
-              <PromptCard label="Variation 3" text={result.variations[2]} />
-            )}
+            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
+              Historia
+            </label>
+            <ul className="space-y-2">
+              {history.map((entry) => {
+                const modelMeta = MODELS.find((m) => m.id === entry.modelId);
+                return (
+                  <li
+                    key={entry.id}
+                    className="flex items-center gap-3 rounded-lg border border-zinc-800
+                      bg-zinc-900 px-4 py-3 transition-colors hover:border-zinc-700"
+                  >
+                    <button
+                      onClick={() => loadFromHistory(entry)}
+                      className="flex min-w-0 flex-1 flex-col gap-1 text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">{modelMeta?.icon}</span>
+                        <span className="text-xs font-medium text-purple-400">
+                          {entry.model}
+                        </span>
+                        {entry.style && (
+                          <span className="text-xs text-zinc-600">· {entry.style}</span>
+                        )}
+                        <span className="ml-auto shrink-0 text-xs text-zinc-600">
+                          {entry.date}
+                        </span>
+                      </div>
+                      <p className="truncate text-xs text-zinc-400">
+                        {entry.generatedPrompt.slice(0, 50)}
+                        {entry.generatedPrompt.length > 50 ? "…" : ""}
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => deleteFromHistory(entry.id)}
+                      aria-label="Usuń z historii"
+                      className="shrink-0 rounded-md p-1.5 text-zinc-600 transition-colors
+                        hover:bg-zinc-800 hover:text-zinc-300"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
         )}
       </div>

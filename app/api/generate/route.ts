@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { buildSystemPrompt, buildUserMessage } from "@/lib/promptBuilder";
+import { buildSystemPrompt, buildUserMessage, ModelId } from "@/lib/promptBuilder";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+const VALID_MODELS: ModelId[] = ["dalle3", "midjourney", "sdxl", "flux", "nanobanana"];
+
 interface RequestBody {
-  type: "image" | "text" | "code";
+  type: "image";
   input: string;
+  selectedModel?: ModelId;
   style?: string;
   mood?: string;
-  quality?: string;
+  lighting?: string;
+  composition?: string;
 }
 
 interface GenerateResponse {
   masterPrompt: string;
   shortVersion: string;
-  variations: [string, string, string];
 }
 
 export async function POST(request: NextRequest) {
@@ -27,28 +30,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { type, input, style, mood, quality } = body;
-
-  if (!type || !["image", "text", "code"].includes(type)) {
-    return NextResponse.json(
-      { error: "Missing or invalid 'type'. Must be image, text, or code." },
-      { status: 400 }
-    );
-  }
+  const { input, selectedModel, style, mood, lighting, composition } = body;
 
   if (!input || typeof input !== "string" || input.trim().length === 0) {
-    return NextResponse.json(
-      { error: "Missing or empty 'input'." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing or empty 'input'." }, { status: 400 });
   }
+
+  const model: ModelId =
+    selectedModel && VALID_MODELS.includes(selectedModel) ? selectedModel : "dalle3";
 
   try {
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: buildSystemPrompt(type) },
-        { role: "user", content: buildUserMessage(input, style, mood, quality) },
+        { role: "system", content: buildSystemPrompt(model) },
+        { role: "user", content: buildUserMessage(input, style, mood, lighting, composition) },
       ],
       temperature: 0.8,
       response_format: { type: "json_object" },
@@ -65,9 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (
       typeof parsed.masterPrompt !== "string" ||
-      typeof parsed.shortVersion !== "string" ||
-      !Array.isArray(parsed.variations) ||
-      parsed.variations.length < 3
+      typeof parsed.shortVersion !== "string"
     ) {
       return NextResponse.json({ error: "Generation failed" }, { status: 500 });
     }
@@ -75,7 +69,6 @@ export async function POST(request: NextRequest) {
     const result: GenerateResponse = {
       masterPrompt: parsed.masterPrompt,
       shortVersion: parsed.shortVersion,
-      variations: [parsed.variations[0], parsed.variations[1], parsed.variations[2]],
     };
 
     return NextResponse.json(result, { status: 200 });
