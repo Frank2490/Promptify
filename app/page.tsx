@@ -25,12 +25,12 @@ const COMPOSITION_OPTIONS = ["Portrait (1:1)", "Landscape (16:9)", "Square (1:1)
 
 type ModelId = "dalle3" | "midjourney" | "sdxl" | "flux" | "nanobanana";
 
-const MODELS: { id: ModelId; name: string; icon: string }[] = [
-  { id: "dalle3",     name: "DALL-E 3",           icon: "✦" },
-  { id: "midjourney", name: "Midjourney v6",       icon: "◈" },
-  { id: "sdxl",       name: "Stable Diffusion XL", icon: "⬡" },
-  { id: "flux",       name: "Flux",                icon: "⚡" },
-  { id: "nanobanana", name: "NanoBanana",          icon: "🍌" },
+const MODELS: { id: ModelId; name: string; icon: string; badge?: string; description: string }[] = [
+  { id: "dalle3",     name: "DALL-E 3",           icon: "✦", badge: "Best Quality", description: "Najwyższa jakość i szczegółowość" },
+  { id: "midjourney", name: "Midjourney v6",       icon: "◈", badge: "Popular",      description: "Artystyczny styl, idealne kompozycje" },
+  { id: "sdxl",       name: "Stable Diffusion XL", icon: "⬡",                       description: "Open-source, pełna kontrola" },
+  { id: "flux",       name: "Flux",                icon: "⚡", badge: "Fast",        description: "Szybka generacja, świetne detale" },
+  { id: "nanobanana", name: "NanoBanana",          icon: "🍌", badge: "Experimental", description: "Eksperymentalny, zaskakujące wyniki" },
 ];
 
 export default function Home() {
@@ -124,33 +124,48 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-12 text-white">
-      <div className="mx-auto w-full max-w-[680px] space-y-8">
+    <main className="min-h-screen bg-[#121212] px-4 py-14 text-white">
+      <div className="mx-auto w-full max-w-[720px] space-y-10">
         {/* Header */}
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Promptify</h1>
-          <p className="text-sm text-zinc-400">Zamień swój pomysł w potężne prompty dla AI.</p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600/15 text-lg text-purple-400 ring-1 ring-purple-500/20">
+              ✦
+            </div>
+            <h1 className="bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+              Promptify
+            </h1>
+          </div>
+          <p className="text-sm leading-relaxed text-zinc-500">
+            Zamień swój pomysł w potężne prompty dla AI.
+          </p>
         </div>
 
         {/* Step 1 — Model */}
-        <section className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
+        <section className="space-y-3">
+          <label className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
             Model AI
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {MODELS.map(({ id, name, icon }) => (
               <button
                 key={id}
                 onClick={() => setSelectedModel(id)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150
+                className={`group flex flex-col items-center gap-1.5 rounded-lg px-2 py-3 text-center transition-all duration-200
                   ${
                     selectedModel === id
-                      ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
-                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                      ? "border border-purple-500/70 bg-zinc-900 shadow-[0_0_0_1px_rgba(168,85,247,0.35),0_0_20px_rgba(168,85,247,0.10)] text-white"
+                      : "border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/80 hover:text-zinc-200"
                   }`}
               >
-                <span>{icon}</span>
-                <span>{name}</span>
+                <span
+                  className={`text-xl transition-transform duration-200 ${selectedModel === id ? "scale-110" : "group-hover:scale-105"}`}
+                >
+                  {icon}
+                </span>
+                <p className={`text-[11px] font-medium leading-tight ${selectedModel === id ? "text-white" : "text-zinc-400"}`}>
+                  {name}
+                </p>
               </button>
             ))}
           </div>
