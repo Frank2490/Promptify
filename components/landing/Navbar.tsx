@@ -60,7 +60,7 @@ export default function Navbar() {
             Zaloguj się
           </Link>
           <Link
-            href="/auth/register"
+            href="/auth?mode=register"
             className="hidden md:inline-flex px-5 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             Zarejestruj się
@@ -121,7 +121,7 @@ export default function Navbar() {
                 Zaloguj się
               </Link>
               <Link
-                href="/auth/register"
+                href="/auth?mode=register"
                 onClick={handleLinkClick}
                 className="py-3 px-5 rounded-full bg-primary text-white text-sm font-medium text-center hover:bg-primary-hover transition-colors"
               >

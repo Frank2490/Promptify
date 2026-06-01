@@ -32,7 +32,7 @@ export default function CTASection() {
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <Link
-                href="/auth/register"
+                href="/auth?mode=register"
                 className="inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded-full bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -45,7 +45,7 @@ export default function CTASection() {
               </Link>
 
               <Link
-                href="/auth/register"
+                href="/auth?mode=register"
                 className="px-6 py-3.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors text-center"
               >
                 Zarejestruj się z e-mailem
