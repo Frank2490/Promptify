@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion, type Variants } from 'framer-motion'
 import { GridPattern } from '@/components/ui/grid-pattern'
 import { cn } from '@/lib/utils'
@@ -51,12 +52,12 @@ export default function Hero() {
         </motion.p>
 
         <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 mt-2 w-full sm:w-auto">
-          <a
-            href="#cta"
+          <Link
+            href="/app"
             className="px-8 py-3.5 rounded-full bg-primary text-white font-medium text-base hover:bg-primary-hover transition-colors text-center"
           >
             Zacznij za darmo
-          </a>
+          </Link>
           <a
             href="#features"
             className="px-8 py-3.5 rounded-full border border-border text-foreground font-medium text-base hover:bg-surface transition-colors text-center"

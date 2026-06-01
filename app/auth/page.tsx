@@ -1,11 +1,44 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AuthPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  }
+
+  const handleSubmit = async () => {
+    setError(null)
+    setLoading(true)
+
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) { setError(error.message); return }
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) { setError(error.message); return }
+      }
+      router.push('/app')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-16 relative overflow-hidden">
@@ -28,7 +61,7 @@ export default function AuthPage() {
           {/* heading */}
           <div className="text-center">
             <h1 className="font-heading font-bold text-2xl text-foreground tracking-tight">
-              Zaloguj się
+              {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
             </h1>
             <p className="mt-1.5 text-sm text-muted-alt">
               Zaloguj się lub stwórz nowe konto
@@ -38,6 +71,7 @@ export default function AuthPage() {
           {/* Google button */}
           <button
             type="button"
+            onClick={handleGoogle}
             className="w-full inline-flex items-center justify-center gap-3 px-5 py-3 rounded-full bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -71,22 +105,34 @@ export default function AuthPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Hasło"
-              autoComplete="current-password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted focus:outline-none focus:border-primary/60 transition-colors"
             />
+
+            {error && (
+              <p className="text-xs text-red-400 px-1">{error}</p>
+            )}
+
             <button
               type="button"
-              className="w-full mt-1 py-3 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full mt-1 py-3 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Zaloguj się
+              {loading ? 'Ładowanie…' : mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
             </button>
           </div>
 
-          {/* login link */}
+          {/* toggle mode */}
           <p className="text-center text-sm text-muted">
-            Nie masz konta?{' '}
-            <button type="button" className="text-primary-light hover:underline underline-offset-2 transition-colors">
-              Zarejestruj się
+            {mode === 'login' ? 'Nie masz konta?' : 'Masz już konto?'}{' '}
+            <button
+              type="button"
+              onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
+              className="text-primary-light hover:underline underline-offset-2 transition-colors"
+            >
+              {mode === 'login' ? 'Zarejestruj się' : 'Zaloguj się'}
             </button>
           </p>
         </div>
