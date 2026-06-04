@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import PromptCard from "@/components/PromptCard";
 import Sidebar from "@/components/Sidebar";
 import { createClient } from "@/lib/supabase/client";
+import { getPlanConfig } from "@/lib/plans";
 
 interface GenerateResponse {
   masterPrompt: string;
@@ -13,8 +14,8 @@ interface GenerateResponse {
   negativePrompt: string | null;
 }
 
-const STYLE_OPTIONS   = ["Realistic", "Cinematic", "Anime", "Oil Painting", "Watercolor", "Pixel Art", "3D Render", "Sketch"];
-const MOOD_OPTIONS    = ["Dark", "Vibrant", "Futuristic", "Calm", "Dramatic", "Ethereal", "Minimalist"];
+const STYLE_OPTIONS    = ["Realistic", "Cinematic", "Anime", "Oil Painting", "Watercolor", "Pixel Art", "3D Render", "Sketch"];
+const MOOD_OPTIONS     = ["Dark", "Vibrant", "Futuristic", "Calm", "Dramatic", "Ethereal", "Minimalist"];
 const LIGHTING_OPTIONS = ["Golden Hour", "Studio Light", "Neon", "Dramatic", "Soft", "Moonlight"];
 const COMPOSITION_OPTIONS = ["Portrait (1:1)", "Landscape (16:9)", "Square (1:1)", "Panoramic (21:9)", "Vertical (9:16)"];
 
@@ -33,9 +34,26 @@ export default function AppPage() {
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
+  const [plan, setPlan] = useState("free");
+  const [promptsUsedToday, setPromptsUsedToday] = useState(0);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) { router.push("/auth"); return; }
+      setUser(data.user);
+
+      const today = new Date().toISOString().split("T")[0];
+      const { data: userData } = await supabase
+        .from("profiles")
+        .select("plan, prompts_used_today, last_reset_date")
+        .eq("id", data.user.id)
+        .single();
+
+      if (userData) {
+        setPlan(userData.plan ?? "free");
+        setPromptsUsedToday(userData.last_reset_date < today ? 0 : (userData.prompts_used_today ?? 0));
+      }
+    });
   }, []);
 
   const handleSignOut = async () => {
@@ -43,13 +61,14 @@ export default function AppPage() {
     router.push("/auth");
   };
 
+  const planConfig = getPlanConfig(plan);
+
   const [selectedModel, setSelectedModel] = useState<ModelId>("dalle3");
   const [userInput, setUserInput] = useState("");
   const [style, setStyle] = useState("");
   const [mood, setMood] = useState("");
   const [lighting, setLighting] = useState("");
   const [composition, setComposition] = useState("");
-
   const [artistReference, setArtistReference] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -60,6 +79,9 @@ export default function AppPage() {
   const [copiedMain, setCopiedMain] = useState(false);
   const [copiedNeg, setCopiedNeg] = useState(false);
 
+  // upgrade modal
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<"limit" | "model">("limit");
 
   const handleCopyMain = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -71,6 +93,15 @@ export default function AppPage() {
     await navigator.clipboard.writeText(text);
     setCopiedNeg(true);
     setTimeout(() => setCopiedNeg(false), 2000);
+  };
+
+  const handleModelSelect = (id: ModelId) => {
+    if (!planConfig.models.includes(id)) {
+      setUpgradeReason("model");
+      setShowUpgradeModal(true);
+      return;
+    }
+    setSelectedModel(id);
   };
 
   const handleGenerate = async () => {
@@ -96,21 +127,33 @@ export default function AppPage() {
         }),
       });
 
+      if (res.status === 429) {
+        setUpgradeReason("limit");
+        setShowUpgradeModal(true);
+        return;
+      }
+
+      if (res.status === 403) {
+        setUpgradeReason("model");
+        setShowUpgradeModal(true);
+        return;
+      }
+
       if (!res.ok) throw new Error("Non-OK response");
 
       const data: GenerateResponse = await res.json();
       setResult(data);
+      setPromptsUsedToday((prev) => prev + 1);
 
       supabase.auth.getUser().then(async ({ data: { user } }) => {
-        if (!user) return
-        const { data: insertData, error } = await supabase.from('prompts').insert({
+        if (!user) return;
+        await supabase.from("prompts").insert({
           user_id: user.id,
           content: data.masterPrompt,
           model: selectedModel,
           is_favorite: false,
-        })
-        console.log('Prompt save result:', insertData, error)
-      })
+        });
+      });
     } catch {
       setError(true);
     } finally {
@@ -120,10 +163,17 @@ export default function AppPage() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      <Sidebar user={user} onSignOut={handleSignOut} />
+      <Sidebar
+        user={user}
+        onSignOut={handleSignOut}
+        plan={plan}
+        promptsUsedToday={promptsUsedToday}
+        dailyLimit={planConfig.dailyLimit}
+      />
 
       <main className="ml-60 min-h-screen px-4 py-14 text-white">
         <div className="mx-auto w-full max-w-[720px] space-y-10">
+
           {/* Header */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -145,27 +195,35 @@ export default function AppPage() {
               Model AI
             </label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {MODELS.map(({ id, name, icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setSelectedModel(id)}
-                  className={`group flex flex-col items-center gap-1.5 rounded-lg px-2 py-3 text-center transition-all duration-200
-                    ${
-                      selectedModel === id
+              {MODELS.map(({ id, name, icon }) => {
+                const locked = !planConfig.models.includes(id);
+                const selected = selectedModel === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => handleModelSelect(id)}
+                    className={`group relative flex flex-col items-center gap-1.5 rounded-lg px-2 py-3 text-center transition-all duration-200
+                      ${selected
                         ? "border border-purple-500/70 bg-zinc-900 shadow-[0_0_0_1px_rgba(168,85,247,0.35),0_0_20px_rgba(168,85,247,0.10)] text-white"
-                        : "border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/80 hover:text-zinc-200"
-                    }`}
-                >
-                  <span
-                    className={`text-xl transition-transform duration-200 ${selectedModel === id ? "scale-110" : "group-hover:scale-105"}`}
+                        : locked
+                          ? "border border-zinc-800 bg-zinc-900/20 text-zinc-600 cursor-pointer"
+                          : "border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/80 hover:text-zinc-200"
+                      }`}
                   >
-                    {icon}
-                  </span>
-                  <p className={`text-[11px] font-medium leading-tight ${selectedModel === id ? "text-white" : "text-zinc-400"}`}>
-                    {name}
-                  </p>
-                </button>
-              ))}
+                    {locked && (
+                      <span className="absolute right-1.5 top-1.5 text-[9px] font-bold text-purple-400/70 bg-purple-500/10 rounded px-1 py-0.5 leading-none">
+                        PRO
+                      </span>
+                    )}
+                    <span className={`text-xl transition-transform duration-200 ${selected ? "scale-110" : locked ? "" : "group-hover:scale-105"}`}>
+                      {locked ? "🔒" : icon}
+                    </span>
+                    <p className={`text-[11px] font-medium leading-tight ${selected ? "text-white" : locked ? "text-zinc-600" : "text-zinc-400"}`}>
+                      {name}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -396,6 +454,49 @@ export default function AppPage() {
 
         </div>
       </main>
+
+      {/* Upgrade modal */}
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowUpgradeModal(false)}
+        >
+          <div
+            className="relative mx-4 w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600/15 text-xl text-purple-400 ring-1 ring-purple-500/20">
+              ✦
+            </div>
+            <h2 className="mb-2 text-base font-semibold text-zinc-100">
+              {upgradeReason === "limit"
+                ? "Dzienny limit wyczerpany"
+                : "Model niedostępny w planie Free"}
+            </h2>
+            <p className="mb-5 text-sm leading-relaxed text-zinc-400">
+              {upgradeReason === "limit"
+                ? "Wykorzystałeś dzienny limit promptów. Ulepsz plan aby generować więcej."
+                : "Ten model jest dostępny tylko w planie Pro i Creator. Ulepsz swój plan aby odblokować wszystkie modele."}
+            </p>
+            <div className="flex flex-col gap-2">
+              <a
+                href="/#pricing"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                onClick={() => setShowUpgradeModal(false)}
+              >
+                ✦ Ulepsz plan
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowUpgradeModal(false)}
+                className="rounded-xl border border-zinc-700 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                Może później
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

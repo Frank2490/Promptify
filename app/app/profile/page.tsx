@@ -26,6 +26,9 @@ export default function ProfilePage() {
   const [email, setEmail]           = useState('')
   const [joinedAt, setJoinedAt]     = useState('')
   const [avatarLetter, setAvatarLetter] = useState('?')
+  const [plan, setPlan]             = useState('free')
+  const [promptsUsedToday, setPromptsUsedToday] = useState(0)
+  const [dailyLimit, setDailyLimit] = useState<number | null>(10)
 
   // section states
   const [nameLoading, setNameLoading] = useState(false)
@@ -48,7 +51,7 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError]     = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/auth'); return }
       const fn = user.user_metadata?.first_name ?? ''
       const ln = user.user_metadata?.last_name  ?? ''
@@ -62,6 +65,22 @@ export default function ProfilePage() {
             day: 'numeric', month: 'long', year: 'numeric',
           })
         )
+      }
+
+      const today = new Date().toISOString().split('T')[0]
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('plan, prompts_used_today, last_reset_date')
+        .eq('id', user.id)
+        .single()
+
+      if (userData) {
+        const userPlan = userData.plan ?? 'free'
+        setPlan(userPlan)
+        const used = userData.last_reset_date < today ? 0 : (userData.prompts_used_today ?? 0)
+        setPromptsUsedToday(used)
+        const limits: Record<string, number | null> = { free: 10, pro: 50, creator: null }
+        setDailyLimit(limits[userPlan] ?? 10)
       }
     })
   }, [])
@@ -185,20 +204,32 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-zinc-400">Aktualny plan</span>
                 <span className="rounded-full bg-zinc-800 px-3 py-0.5 text-xs font-semibold text-zinc-300">
-                  Free
+                  {plan.charAt(0).toUpperCase() + plan.slice(1)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-400">Użycie promptów</span>
-                <span className="text-sm font-medium text-zinc-200">0 / ∞ promptów</span>
+                <span className="text-sm text-zinc-400">Użycie promptów dzisiaj</span>
+                <span className="text-sm font-medium text-zinc-200">
+                  {dailyLimit === null ? `${promptsUsedToday} / ∞` : `${promptsUsedToday} / ${dailyLimit}`} promptów
+                </span>
               </div>
+              {dailyLimit !== null && (
+                <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      promptsUsedToday >= dailyLimit ? 'bg-red-500' : promptsUsedToday >= dailyLimit * 0.8 ? 'bg-amber-500' : 'bg-purple-500'
+                    }`}
+                    style={{ width: `${Math.min((promptsUsedToday / dailyLimit) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
               <div className="h-px bg-zinc-800" />
-              <button
-                type="button"
+              <a
+                href="/#pricing"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
               >
                 ✦ Ulepsz plan
-              </button>
+              </a>
             </div>
           </section>
 
