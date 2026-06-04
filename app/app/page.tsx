@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 interface GenerateResponse {
   masterPrompt: string;
   shortVersion: string;
+  negativePrompt: string | null;
 }
 
 const STYLE_OPTIONS   = ["Realistic", "Cinematic", "Anime", "Oil Painting", "Watercolor", "Pixel Art", "3D Render", "Sketch"];
@@ -49,18 +50,27 @@ export default function AppPage() {
   const [lighting, setLighting] = useState("");
   const [composition, setComposition] = useState("");
 
+  const [artistReference, setArtistReference] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [submittedInput, setSubmittedInput] = useState("");
   const [resultModel, setResultModel] = useState<ModelId>("dalle3");
   const [copiedMain, setCopiedMain] = useState(false);
+  const [copiedNeg, setCopiedNeg] = useState(false);
 
 
   const handleCopyMain = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedMain(true);
     setTimeout(() => setCopiedMain(false), 2000);
+  };
+
+  const handleCopyNeg = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedNeg(true);
+    setTimeout(() => setCopiedNeg(false), 2000);
   };
 
   const handleGenerate = async () => {
@@ -82,6 +92,7 @@ export default function AppPage() {
           mood,
           lighting,
           composition,
+          artistReference: artistReference.trim() || undefined,
         }),
       });
 
@@ -275,6 +286,26 @@ export default function AppPage() {
             </div>
           </section>
 
+          {/* Artist reference */}
+          <section className="space-y-2">
+            <label
+              htmlFor="artistReference"
+              className="text-xs font-semibold uppercase tracking-widest text-zinc-400"
+            >
+              Referencja artysty <span className="normal-case font-normal text-zinc-600">(opcjonalnie)</span>
+            </label>
+            <input
+              id="artistReference"
+              type="text"
+              value={artistReference}
+              onChange={(e) => setArtistReference(e.target.value)}
+              placeholder="np. Rembrandt, Moebius, Greg Rutkowski…"
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5
+                text-sm text-zinc-100 placeholder-zinc-600 outline-none
+                transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            />
+          </section>
+
           {/* Generate button */}
           <button
             onClick={handleGenerate}
@@ -339,6 +370,27 @@ export default function AppPage() {
               </div>
 
               <PromptCard label="Skrócona wersja" text={result.shortVersion} />
+
+              {result.negativePrompt && (
+                <div className="flex flex-col gap-3 rounded-lg border border-red-900/40 bg-zinc-900 p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-red-400">
+                      Negative Prompt
+                    </span>
+                    <button
+                      onClick={() => handleCopyNeg(result.negativePrompt!)}
+                      className="shrink-0 rounded-md bg-zinc-800 px-3 py-1 text-xs font-semibold
+                        text-zinc-300 transition-all duration-150 hover:bg-zinc-700
+                        hover:text-white active:scale-95"
+                    >
+                      {copiedNeg ? "SKOPIOWANO ✓" : "KOPIUJ"}
+                    </button>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
+                    {result.negativePrompt}
+                  </p>
+                </div>
+              )}
             </section>
           )}
 
