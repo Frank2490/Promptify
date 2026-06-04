@@ -12,16 +12,6 @@ interface GenerateResponse {
   shortVersion: string;
 }
 
-interface HistoryEntry {
-  id: number;
-  userInput: string;
-  generatedPrompt: string;
-  model: string;
-  modelId: ModelId;
-  style: string;
-  date: string;
-}
-
 const STYLE_OPTIONS   = ["Realistic", "Cinematic", "Anime", "Oil Painting", "Watercolor", "Pixel Art", "3D Render", "Sketch"];
 const MOOD_OPTIONS    = ["Dark", "Vibrant", "Futuristic", "Calm", "Dramatic", "Ethereal", "Minimalist"];
 const LIGHTING_OPTIONS = ["Golden Hour", "Studio Light", "Neon", "Dramatic", "Soft", "Moonlight"];
@@ -66,30 +56,6 @@ export default function AppPage() {
   const [resultModel, setResultModel] = useState<ModelId>("dalle3");
   const [copiedMain, setCopiedMain] = useState(false);
 
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(localStorage.getItem("promptify_history") ?? "[]");
-    } catch {
-      return [];
-    }
-  });
-
-  const saveHistory = (updated: HistoryEntry[]) => {
-    setHistory(updated);
-    localStorage.setItem("promptify_history", JSON.stringify(updated));
-  };
-
-  const deleteFromHistory = (id: number) => {
-    saveHistory(history.filter((e) => e.id !== id));
-  };
-
-  const loadFromHistory = (entry: HistoryEntry) => {
-    setSubmittedInput(entry.userInput);
-    setResultModel(entry.modelId);
-    setResult({ masterPrompt: entry.generatedPrompt, shortVersion: "" });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleCopyMain = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -134,17 +100,6 @@ export default function AppPage() {
         })
         console.log('Prompt save result:', insertData, error)
       })
-
-      const entry: HistoryEntry = {
-        id: Date.now(),
-        userInput,
-        generatedPrompt: data.masterPrompt,
-        model: MODELS.find((m) => m.id === selectedModel)?.name ?? selectedModel,
-        modelId: selectedModel,
-        style,
-        date: new Date().toISOString().split("T")[0],
-      };
-      saveHistory([entry, ...history].slice(0, 10));
     } catch {
       setError(true);
     } finally {
@@ -153,10 +108,10 @@ export default function AppPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#121212]">
+    <div className="min-h-screen bg-[#121212]">
       <Sidebar user={user} onSignOut={handleSignOut} />
 
-      <main className="flex-1 overflow-y-auto px-4 py-14 text-white">
+      <main className="ml-60 min-h-screen px-4 py-14 text-white">
         <div className="mx-auto w-full max-w-[720px] space-y-10">
           {/* Header */}
           <div className="space-y-3">
@@ -387,56 +342,6 @@ export default function AppPage() {
             </section>
           )}
 
-          {/* History */}
-          {history.length > 0 && (
-            <section className="space-y-3">
-              <label className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-                Historia
-              </label>
-              <ul className="space-y-2">
-                {history.map((entry) => {
-                  const modelMeta = MODELS.find((m) => m.id === entry.modelId);
-                  return (
-                    <li
-                      key={entry.id}
-                      className="flex items-center gap-3 rounded-lg border border-zinc-800
-                        bg-zinc-900 px-4 py-3 transition-colors hover:border-zinc-700"
-                    >
-                      <button
-                        onClick={() => loadFromHistory(entry)}
-                        className="flex min-w-0 flex-1 flex-col gap-1 text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs">{modelMeta?.icon}</span>
-                          <span className="text-xs font-medium text-purple-400">
-                            {entry.model}
-                          </span>
-                          {entry.style && (
-                            <span className="text-xs text-zinc-600">· {entry.style}</span>
-                          )}
-                          <span className="ml-auto shrink-0 text-xs text-zinc-600">
-                            {entry.date}
-                          </span>
-                        </div>
-                        <p className="truncate text-xs text-zinc-400">
-                          {entry.generatedPrompt.slice(0, 50)}
-                          {entry.generatedPrompt.length > 50 ? "…" : ""}
-                        </p>
-                      </button>
-                      <button
-                        onClick={() => deleteFromHistory(entry.id)}
-                        aria-label="Usuń z historii"
-                        className="shrink-0 rounded-md p-1.5 text-zinc-600 transition-colors
-                          hover:bg-zinc-800 hover:text-zinc-300"
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
         </div>
       </main>
     </div>
