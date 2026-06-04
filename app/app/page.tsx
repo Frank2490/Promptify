@@ -124,6 +124,17 @@ export default function AppPage() {
       const data: GenerateResponse = await res.json();
       setResult(data);
 
+      supabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) return
+        const { data: insertData, error } = await supabase.from('prompts').insert({
+          user_id: user.id,
+          content: data.masterPrompt,
+          model: selectedModel,
+          is_favorite: false,
+        })
+        console.log('Prompt save result:', insertData, error)
+      })
+
       const entry: HistoryEntry = {
         id: Date.now(),
         userInput,
