@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, Heart, User } from 'lucide-react'
+import { Clock, Heart, User as UserIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
 interface SidebarProps {
@@ -13,7 +13,7 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/app/history',   label: 'Historia promptów', Icon: Clock  },
   { href: '/app/favorites', label: 'Ulubione',           Icon: Heart  },
-  { href: '/app/profile',   label: 'Profil',             Icon: User   },
+  { href: '/app/profile',   label: 'Profil',             Icon: UserIcon },
 ]
 
 export default function Sidebar({ user, onSignOut }: SidebarProps) {
