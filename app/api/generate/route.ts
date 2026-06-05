@@ -24,11 +24,41 @@ interface GenerateResponse {
   negativePrompt: string | null;
 }
 
+// In-memory rate limiter: max 10 requests per minute per user
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+
+  if (entry.count >= 10) return false;
+
+  entry.count++;
+  return true;
+}
+
+function sanitizeInput(input: string): string {
+  return input.replace(/<[^>]*>/g, "").trim();
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit: 10 req/min per user
+  if (!checkRateLimit(user.id)) {
+    return NextResponse.json(
+      { error: "Zbyt wiele requestów. Poczekaj chwilę." },
+      { status: 429 }
+    );
   }
 
   let body: RequestBody;
@@ -38,11 +68,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { input, selectedModel, style, mood, lighting, composition } = body;
+  const { input: rawInput, selectedModel, style, mood, lighting, composition } = body;
 
-  if (!input || typeof input !== "string" || input.trim().length === 0) {
-    return NextResponse.json({ error: "Missing or empty 'input'." }, { status: 400 });
+  // Input validation
+  if (!rawInput || typeof rawInput !== "string" || rawInput.trim().length === 0) {
+    return NextResponse.json({ error: "Wpisz opis obrazu." }, { status: 400 });
   }
+
+  if (rawInput.length > 500) {
+    return NextResponse.json(
+      { error: "Opis jest za długi (max 500 znaków)." },
+      { status: 400 }
+    );
+  }
+
+  const input = sanitizeInput(rawInput);
 
   const model: ModelId =
     selectedModel && VALID_MODELS.includes(selectedModel) ? selectedModel : "dalle3";
