@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  console.log('[Checkout API] Creating session for user:', user.id, '| plan:', plan, '| priceId:', priceId)
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     payment_method_types: ["card"],
@@ -24,5 +26,6 @@ export async function POST(req: NextRequest) {
     metadata: { userId: user.id, plan },
   });
 
+  console.log('[Checkout API] Session created, url:', session.url)
   return NextResponse.json({ url: session.url });
 }

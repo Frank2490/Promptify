@@ -43,7 +43,7 @@ const tiers: PricingTier[] = [
     ],
     cta: 'Wybierz Pro',
     highlighted: true,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
+    priceId: 'price_1TewjCLykVuvHEXo48UBgpak',
     plan: 'pro',
   },
   {
@@ -60,7 +60,7 @@ const tiers: PricingTier[] = [
     ],
     cta: 'Wybierz Creator',
     highlighted: false,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_CREATOR_PRICE_ID,
+    priceId: 'price_1TewkBLykVuvHEXoXH0kpqIH',
     plan: 'creator',
   },
 ]
@@ -88,17 +88,26 @@ export default function Pricing() {
     }
     setLoadingTier(tier.plan)
     try {
+      console.log('[Checkout] Sending request:', { priceId: tier.priceId, plan: tier.plan })
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId: tier.priceId, plan: tier.plan }),
       })
+      console.log('[Checkout] Response status:', res.status)
       if (res.status === 401) {
         window.location.href = '/auth'
         return
       }
-      const { url } = await res.json()
-      if (url) window.location.href = url
+      const data = await res.json()
+      console.log('[Checkout] Response data:', data)
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        console.error('[Checkout] No URL in response:', data)
+      }
+    } catch (err) {
+      console.error('[Checkout] Error:', err)
     } finally {
       setLoadingTier(null)
     }
