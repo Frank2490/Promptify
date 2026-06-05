@@ -3,6 +3,8 @@ import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -32,7 +34,11 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={cn(spaceGrotesk.variable, dmSans.variable, GeistSans.variable, "dark font-sans")}
     >
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }
