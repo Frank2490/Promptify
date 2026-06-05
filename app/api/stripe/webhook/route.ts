@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   console.log("[Webhook] Received request");
@@ -41,8 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
 
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("profiles")
       .update({ plan })
       .eq("id", userId)
