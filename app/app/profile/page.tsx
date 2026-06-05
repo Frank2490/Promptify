@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getPlanConfig } from '@/lib/plans'
 
 const CARD = 'rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur-md p-6'
 const SECTION_LABEL = 'mb-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-500'
@@ -28,7 +30,7 @@ export default function ProfilePage() {
   const [avatarLetter, setAvatarLetter] = useState('?')
   const [plan, setPlan]             = useState('free')
   const [promptsUsedToday, setPromptsUsedToday] = useState(0)
-  const [dailyLimit, setDailyLimit] = useState<number | null>(10)
+  const [dailyLimit, setDailyLimit] = useState<number | null>(getPlanConfig('free').dailyLimit)
 
   // section states
   const [nameLoading, setNameLoading] = useState(false)
@@ -79,8 +81,7 @@ export default function ProfilePage() {
         setPlan(userPlan)
         const used = userData.last_reset_date < today ? 0 : (userData.prompts_used_today ?? 0)
         setPromptsUsedToday(used)
-        const limits: Record<string, number | null> = { free: 10, pro: 50, creator: null }
-        setDailyLimit(limits[userPlan] ?? 10)
+        setDailyLimit(getPlanConfig(userPlan).dailyLimit)
       }
     })
   }, [])
@@ -224,12 +225,12 @@ export default function ProfilePage() {
                 </div>
               )}
               <div className="h-px bg-zinc-800" />
-              <a
-                href="/#pricing"
+              <Link
+                href="/#cennik"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
               >
                 ✦ Ulepsz plan
-              </a>
+              </Link>
             </div>
           </section>
 

@@ -86,8 +86,7 @@ export function buildUserMessage(
   style?: string,
   mood?: string,
   lighting?: string,
-  composition?: string,
-  artistReference?: string
+  composition?: string
 ): string {
   let message = `Enhance the following idea into image prompts:\n\n"${input}"`;
 
@@ -99,10 +98,6 @@ export function buildUserMessage(
 
   if (extras.length > 0) {
     message += `\n\nSelected parameters (incorporate all of these):\n${extras.join("\n")}`;
-  }
-
-  if (artistReference) {
-    message += `\n\nArtist reference: ${artistReference} — incorporate their visual style, color palette, and compositional approach`;
   }
 
   return message;

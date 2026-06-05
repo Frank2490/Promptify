@@ -16,7 +16,6 @@ interface RequestBody {
   mood?: string;
   lighting?: string;
   composition?: string;
-  artistReference?: string;
 }
 
 interface GenerateResponse {
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { input, selectedModel, style, mood, lighting, composition, artistReference } = body;
+  const { input, selectedModel, style, mood, lighting, composition } = body;
 
   if (!input || typeof input !== "string" || input.trim().length === 0) {
     return NextResponse.json({ error: "Missing or empty 'input'." }, { status: 400 });
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: buildSystemPrompt(model) },
-        { role: "user", content: buildUserMessage(input, style, mood, lighting, composition, artistReference) },
+        { role: "user", content: buildUserMessage(input, style, mood, lighting, composition) },
       ],
       temperature: 0.8,
       response_format: { type: "json_object" },

@@ -40,7 +40,7 @@ export default function Sidebar({ user, onSignOut, plan = 'free', promptsUsedTod
       {/* Logo */}
       <div className="shrink-0 px-5 pt-6 pb-5">
         <Link
-          href="/app"
+          href="/"
           className="font-bold text-white text-lg tracking-tight hover:text-purple-400 transition-colors"
         >
           Promptify
@@ -103,7 +103,7 @@ export default function Sidebar({ user, onSignOut, plan = 'free', promptsUsedTod
           <span className="text-[10px] text-zinc-600">Plan: {planLabel}</span>
           {plan === 'free' && (
             <Link
-              href="/#pricing"
+              href="/#cennik"
               className="text-[10px] font-medium text-purple-400 hover:text-purple-300 transition-colors"
             >
               Ulepsz →

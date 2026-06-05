@@ -13,7 +13,7 @@ export interface PlanConfig {
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     name: 'Free',
-    dailyLimit: 10,
+    dailyLimit: 5,
     models: ['dalle3'],
     historyDays: 7,
     favoritesLimit: 5,

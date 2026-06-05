@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const links = [
   { label: 'Produkt', href: '#hero' },
@@ -12,8 +14,12 @@ const links = [
 ]
 
 export default function Navbar() {
+  const router = useRouter()
+  const supabase = createClient()
+
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20)
@@ -21,7 +27,19 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handler)
   }, [])
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setLoggedIn(!!data.user)
+    })
+  }, [])
+
   const handleLinkClick = () => setMenuOpen(false)
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setLoggedIn(false)
+    router.push('/')
+  }
 
   return (
     <motion.header
@@ -53,18 +71,38 @@ export default function Navbar() {
 
         {/* Desktop CTA + mobile hamburger */}
         <div className="flex items-center gap-2">
-          <Link
-            href="/auth"
-            className="hidden md:inline-flex px-5 py-2 rounded-full border border-border text-foreground text-sm font-medium hover:bg-white/5 transition-colors"
-          >
-            Zaloguj się
-          </Link>
-          <Link
-            href="/auth?mode=register"
-            className="hidden md:inline-flex px-5 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
-          >
-            Zarejestruj się
-          </Link>
+          {loggedIn ? (
+            <>
+              <Link
+                href="/app"
+                className="hidden md:inline-flex px-5 py-2 rounded-full border border-border text-foreground text-sm font-medium hover:bg-white/5 transition-colors"
+              >
+                Otwórz aplikację
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="hidden md:inline-flex px-5 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+              >
+                Wyloguj się
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth"
+                className="hidden md:inline-flex px-5 py-2 rounded-full border border-border text-foreground text-sm font-medium hover:bg-white/5 transition-colors"
+              >
+                Zaloguj się
+              </Link>
+              <Link
+                href="/auth?mode=register"
+                className="hidden md:inline-flex px-5 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+              >
+                Zarejestruj się
+              </Link>
+            </>
+          )}
 
           <button
             type="button"
@@ -113,20 +151,41 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
-              <Link
-                href="/auth"
-                onClick={handleLinkClick}
-                className="mt-3 py-3 px-5 rounded-full border border-border text-foreground text-sm font-medium text-center hover:bg-white/5 transition-colors"
-              >
-                Zaloguj się
-              </Link>
-              <Link
-                href="/auth?mode=register"
-                onClick={handleLinkClick}
-                className="py-3 px-5 rounded-full bg-primary text-white text-sm font-medium text-center hover:bg-primary-hover transition-colors"
-              >
-                Zarejestruj się
-              </Link>
+              {loggedIn ? (
+                <>
+                  <Link
+                    href="/app"
+                    onClick={handleLinkClick}
+                    className="mt-3 py-3 px-5 rounded-full border border-border text-foreground text-sm font-medium text-center hover:bg-white/5 transition-colors"
+                  >
+                    Otwórz aplikację
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => { handleLinkClick(); handleSignOut() }}
+                    className="py-3 px-5 rounded-full bg-primary text-white text-sm font-medium text-center hover:bg-primary-hover transition-colors"
+                  >
+                    Wyloguj się
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth"
+                    onClick={handleLinkClick}
+                    className="mt-3 py-3 px-5 rounded-full border border-border text-foreground text-sm font-medium text-center hover:bg-white/5 transition-colors"
+                  >
+                    Zaloguj się
+                  </Link>
+                  <Link
+                    href="/auth?mode=register"
+                    onClick={handleLinkClick}
+                    className="py-3 px-5 rounded-full bg-primary text-white text-sm font-medium text-center hover:bg-primary-hover transition-colors"
+                  >
+                    Zarejestruj się
+                  </Link>
+                </>
+              )}
             </nav>
           </motion.div>
         )}

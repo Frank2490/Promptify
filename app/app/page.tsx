@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import PromptCard from "@/components/PromptCard";
 import Sidebar from "@/components/Sidebar";
 import { createClient } from "@/lib/supabase/client";
 import { getPlanConfig } from "@/lib/plans";
+import Link from "next/link";
 
 interface GenerateResponse {
   masterPrompt: string;
@@ -31,11 +32,20 @@ const MODELS: { id: ModelId; name: string; icon: string; badge?: string; descrip
 
 export default function AppPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
   const [plan, setPlan] = useState("free");
   const [promptsUsedToday, setPromptsUsedToday] = useState(0);
+  const [upgradeToast, setUpgradeToast] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      setUpgradeToast(true);
+      setTimeout(() => setUpgradeToast(false), 5000);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -69,8 +79,6 @@ export default function AppPage() {
   const [mood, setMood] = useState("");
   const [lighting, setLighting] = useState("");
   const [composition, setComposition] = useState("");
-  const [artistReference, setArtistReference] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [result, setResult] = useState<GenerateResponse | null>(null);
@@ -123,7 +131,6 @@ export default function AppPage() {
           mood,
           lighting,
           composition,
-          artistReference: artistReference.trim() || undefined,
         }),
       });
 
@@ -163,6 +170,21 @@ export default function AppPage() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
+      {upgradeToast && (
+        <div className="fixed top-5 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-purple-500/30 bg-zinc-900 px-5 py-3 shadow-2xl shadow-purple-900/20 animate-in fade-in slide-in-from-top-2 duration-300">
+          <span className="text-purple-400 text-base">✦</span>
+          <p className="text-sm font-medium text-zinc-100">
+            Plan został uaktualniony! Witaj w Promptify {plan === "creator" ? "Creator" : "Pro"} 🎉
+          </p>
+          <button
+            onClick={() => setUpgradeToast(false)}
+            className="ml-2 text-zinc-500 hover:text-zinc-300 transition-colors text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <Sidebar
         user={user}
         onSignOut={handleSignOut}
@@ -344,26 +366,6 @@ export default function AppPage() {
             </div>
           </section>
 
-          {/* Artist reference */}
-          <section className="space-y-2">
-            <label
-              htmlFor="artistReference"
-              className="text-xs font-semibold uppercase tracking-widest text-zinc-400"
-            >
-              Referencja artysty <span className="normal-case font-normal text-zinc-600">(opcjonalnie)</span>
-            </label>
-            <input
-              id="artistReference"
-              type="text"
-              value={artistReference}
-              onChange={(e) => setArtistReference(e.target.value)}
-              placeholder="np. Rembrandt, Moebius, Greg Rutkowski…"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5
-                text-sm text-zinc-100 placeholder-zinc-600 outline-none
-                transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-            />
-          </section>
-
           {/* Generate button */}
           <button
             onClick={handleGenerate}
@@ -479,13 +481,13 @@ export default function AppPage() {
                 : "Ten model jest dostępny tylko w planie Pro i Creator. Ulepsz swój plan aby odblokować wszystkie modele."}
             </p>
             <div className="flex flex-col gap-2">
-              <a
-                href="/#pricing"
+              <Link
+                href="/#cennik"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                 onClick={() => setShowUpgradeModal(false)}
               >
                 ✦ Ulepsz plan
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={() => setShowUpgradeModal(false)}

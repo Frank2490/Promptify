@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { motion, useInView, type Variants } from 'framer-motion'
 
 interface PricingTier {
@@ -11,6 +11,8 @@ interface PricingTier {
   features: string[]
   cta: string
   highlighted: boolean
+  priceId?: string
+  plan?: string
 }
 
 const tiers: PricingTier[] = [
@@ -19,8 +21,13 @@ const tiers: PricingTier[] = [
     price: '0 zł',
     period: '/mies.',
     description: 'Idealne na start z Promptify.',
-    features: ['10 promptów / dzień', 'Tylko DALL-E', 'Podstawowe szablony'],
-    cta: 'Zacznij',
+    features: [
+      '5 promptów dziennie',
+      'Tylko model DALL-E',
+      'Historia promptów 7 dni',
+      '5 ulubionych promptów',
+    ],
+    cta: 'Zacznij za darmo',
     highlighted: false,
   },
   {
@@ -28,18 +35,33 @@ const tiers: PricingTier[] = [
     price: '29 zł',
     period: '/mies.',
     description: 'Dla twórców, którzy generują często.',
-    features: ['Nieograniczone prompty', 'Wszystkie modele', 'Historia promptów', 'Kolejka priorytetowa'],
-    cta: 'Zacznij darmowy okres próbny',
+    features: [
+      '50 promptów dziennie',
+      'Wszystkie modele (DALL-E, Midjourney, Flux, SDXL, NanoBanana)',
+      'Historia promptów 30 dni',
+      'Nielimitowane ulubione',
+    ],
+    cta: 'Wybierz Pro',
     highlighted: true,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
+    plan: 'pro',
   },
   {
     name: 'Creator',
     price: '79 zł',
     period: '/mies.',
     description: 'Dla zaawansowanych użytkowników i profesjonalistów.',
-    features: ['Wszystko z Pro', 'Dostęp do API', 'Generowanie masowe', 'Wsparcie priorytetowe'],
-    cta: 'Zacznij',
+    features: [
+      'Nielimitowane prompty',
+      'Wszystkie modele',
+      'Nielimitowana historia',
+      'Nielimitowane ulubione',
+      'Dostęp do API',
+    ],
+    cta: 'Wybierz Creator',
     highlighted: false,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_CREATOR_PRICE_ID,
+    plan: 'creator',
   },
 ]
 
@@ -57,6 +79,30 @@ const fadeUp: Variants = {
 export default function Pricing() {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
+  const [loadingTier, setLoadingTier] = useState<string | null>(null)
+
+  const handleCheckout = async (tier: PricingTier) => {
+    if (!tier.priceId || !tier.plan) {
+      window.location.href = '/auth'
+      return
+    }
+    setLoadingTier(tier.plan)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId: tier.priceId, plan: tier.plan }),
+      })
+      if (res.status === 401) {
+        window.location.href = '/auth'
+        return
+      }
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } finally {
+      setLoadingTier(null)
+    }
+  }
 
   return (
     <section id="cennik" className="py-24 px-6">
@@ -119,16 +165,17 @@ export default function Pricing() {
                 ))}
               </ul>
 
-              <a
-                href="#cta"
-                className={`text-center py-2.5 px-5 rounded-full font-medium text-sm transition-colors ${
+              <button
+                onClick={() => handleCheckout(tier)}
+                disabled={loadingTier === tier.plan}
+                className={`text-center py-2.5 px-5 rounded-full font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                   tier.highlighted
                     ? 'bg-primary text-white hover:bg-primary-hover'
                     : 'border border-border text-foreground hover:bg-surface'
                 }`}
               >
-                {tier.cta}
-              </a>
+                {loadingTier === tier.plan ? 'Przekierowanie…' : tier.cta}
+              </button>
             </motion.div>
           ))}
         </motion.div>
