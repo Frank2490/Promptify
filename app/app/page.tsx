@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import PromptCard from "@/components/PromptCard";
@@ -30,22 +30,43 @@ const MODELS: { id: ModelId; name: string; icon: string; badge?: string; descrip
   { id: "nanobanana", name: "NanoBanana",          icon: "🍌", badge: "Experimental", description: "Eksperymentalny, zaskakujące wyniki" },
 ];
 
+function UpgradeToast({ plan }: { plan: string }) {
+  const searchParams = useSearchParams();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      setVisible(true);
+      setTimeout(() => setVisible(false), 5000);
+    }
+  }, [searchParams]);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed top-5 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-purple-500/30 bg-zinc-900 px-5 py-3 shadow-2xl shadow-purple-900/20 animate-in fade-in slide-in-from-top-2 duration-300">
+      <span className="text-purple-400 text-base">✦</span>
+      <p className="text-sm font-medium text-zinc-100">
+        Plan został uaktualniony! Witaj w Promptify {plan === "creator" ? "Creator" : "Pro"} 🎉
+      </p>
+      <button
+        onClick={() => setVisible(false)}
+        className="ml-2 text-zinc-500 hover:text-zinc-300 transition-colors text-xs"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export default function AppPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
   const [plan, setPlan] = useState("free");
   const [promptsUsedToday, setPromptsUsedToday] = useState(0);
-  const [upgradeToast, setUpgradeToast] = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get("upgraded") === "true") {
-      setUpgradeToast(true);
-      setTimeout(() => setUpgradeToast(false), 5000);
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -170,20 +191,9 @@ export default function AppPage() {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      {upgradeToast && (
-        <div className="fixed top-5 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-purple-500/30 bg-zinc-900 px-5 py-3 shadow-2xl shadow-purple-900/20 animate-in fade-in slide-in-from-top-2 duration-300">
-          <span className="text-purple-400 text-base">✦</span>
-          <p className="text-sm font-medium text-zinc-100">
-            Plan został uaktualniony! Witaj w Promptify {plan === "creator" ? "Creator" : "Pro"} 🎉
-          </p>
-          <button
-            onClick={() => setUpgradeToast(false)}
-            className="ml-2 text-zinc-500 hover:text-zinc-300 transition-colors text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <UpgradeToast plan={plan} />
+      </Suspense>
 
       <Sidebar
         user={user}
